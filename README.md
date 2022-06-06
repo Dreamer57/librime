@@ -40,10 +40,8 @@ Follow the instructions to build librime on platforms other than Linux:
 Build dependencies
 ---
   - compiler with C++14 support
-  - capnproto>=0.7.0
   - cmake>=2.8
   - libboost>=1.48
-  - libcapnp>=0.7.0
   - libglog (optional)
   - libleveldb
   - libmarisa
@@ -54,7 +52,6 @@ Build dependencies
 Runtime dependencies
 ---
   - libboost
-  - libcapnp
   - libglog (optional)
   - libleveldb
   - libmarisa
@@ -76,7 +73,7 @@ Official:
   - [Squirrel](https://github.com/rime/squirrel): frontend for macOS
   - [Weasel](https://github.com/rime/weasel): frontend for Windows
 
-Third-party:
+Community:
   - [emacs-rime](https://github.com/DogLooksGood/emacs-rime): frontend for Emacs
   - [fcitx-rime](https://github.com/fcitx/fcitx-rime): Fcitx frontend for Linux
   - [fcitx5-rime](https://github.com/fcitx/fcitx5-rime): Fcitx5 frontend for Linux
@@ -91,14 +88,16 @@ Plugins
     deals with character encoding; depends on boost::locale and ICU libraries
   - [librime-legacy](https://github.com/rime/librime-legacy) Legacy module with
     GPL-licensed code
+  - [librime-lua](https://github.com/hchunhui/librime-lua) Lua scripting
+  - [librime-octagram](https://github.com/lotem/librime-octagram) Language model
+  - [librime-proto](https://github.com/lotem/librime-proto) IPC using CapnProto
 
 Related works
 ===
-  - [plum](https://github.com/rime/plum): Rime configuration manager and input
-    schema repository
-  - [Combo Pinyin](https://github.com/rime/home/wiki/ComboPinyin): an innovative
+  - [plum](https://github.com/rime/plum): Rime configuration (recipe) installer
+  - [combo-pinyin](https://github.com/rime/home/wiki/ComboPinyin): an innovative
     chord-typing practice to input Pinyin
-  - [rime-essay](https://github.com/rime/rime-essay): the vocabulary and language model for Rime
+  - [rime-essay](https://github.com/rime/rime-essay): the preset vocabulary
   - [SCU](https://github.com/neolee/SCU): Squirrel Configuration Utilities
 
 Credits

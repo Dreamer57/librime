@@ -3,6 +3,7 @@ set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_fla
 
 project(rime)
 cmake_minimum_required(VERSION 3.10)
+set(CMAKE_CXX_STANDARD 14)
 
 set(rime_version 1.7.3)
 set(rime_soversion 1)
@@ -33,7 +34,7 @@ if(WIN32)
 endif(WIN32)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "${PROJECT_SOURCE_DIR}/thirdparty")
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "${PROJECT_SOURCE_DIR}")
 
 if (ENABLE_ASAN)
   set(asan_cflags "-fsanitize=address -fno-omit-frame-pointer")
@@ -74,8 +75,6 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
   link_directories(${Boost_LIBRARY_DIRS})
 endif()
-
-find_package(CapnProto REQUIRED)
 
 if(ENABLE_LOGGING)
 
@@ -143,8 +142,8 @@ configure_file(
 
 include_directories(${PROJECT_BINARY_DIR}/src)
 include_directories(${PROJECT_SOURCE_DIR}/src)
-include_directories(${PROJECT_SOURCE_DIR}/thirdparty/include)
-link_directories(${PROJECT_SOURCE_DIR}/thirdparty/lib)
+include_directories(${PROJECT_SOURCE_DIR}/include)
+link_directories(${PROJECT_SOURCE_DIR}/lib)
 
 if(MSVC)
   # https://stackoverflow.com/a/31264946
@@ -152,7 +151,7 @@ if(MSVC)
   set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
   if(MSVC10)
     # stdint.h is missing from VS2010
-    include_directories(${PROJECT_SOURCE_DIR}/thirdparty/include/msvc)
+    include_directories(${PROJECT_SOURCE_DIR}/include/msvc)
   endif()
   # Force Boost.Uuid to use wincrypt as random provider instead of bcrypt for Windows XP compatibility
   add_definitions("/wd4244 /wd4996 /DBOOST_UUID_RANDOM_PROVIDER_FORCE_WINCRYPT")
@@ -240,9 +239,6 @@ if(BUILD_SHARED_LIBS)
 else()
   set(rime_library rime-static)
 endif()
-
-add_subdirectory(proto)
-include_directories(${RIME_PROTO_INCLUDE_DIR})
 
 add_subdirectory(plugins)
 message(STATUS "rime_plugins_libs: ${rime_plugins_deps}")

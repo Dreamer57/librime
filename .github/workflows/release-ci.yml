@@ -1,145 +1,38 @@
-name: release ci
+name: Release CI
+
 on:
   push:
     tags:
-      - "*"
+      - '[0-9]+.*'
+
 jobs:
   linux:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        compiler: [g++, clang]
-    steps:
-      - name: Checkout last commit
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: "recursive"
+    uses: ./.github/workflows/linux-build.yml
 
-      - name: Install dependency
-        run: ./action-install-linux.sh
-
-      - name: Unit test
-        run: make test
   macos:
-    runs-on: macos-latest
-    env:
-      boost_version: 1.78.0
-      BOOST_ROOT: ${{ github.workspace }}/thirdparty/src/boost_1_78_0
-    steps:
-      - name: Checkout last commit
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: "recursive"
+    uses: ./.github/workflows/macos-build.yml
+    with:
+      build_variant: '-universal'
+      rime_plugins: rime/librime-charcode hchunhui/librime-lua lotem/librime-octagram
 
-      - name: Cache Boost
-        id: cache-boost
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ env.BOOST_ROOT }}.tar.bz2
-            ${{ env.BOOST_ROOT }}/stage
-          key: ${{ runner.os }}-boost-${{ env.boost_version }}
-
-      - name: Extract Boost source tarball
-        if: steps.cache-boost.outputs.cache-hit == 'true'
-        run: |
-          pushd thirdparty/src
-          tar --bzip2 -xf ${{ env.BOOST_ROOT }}.tar.bz2
-          popd
-
-      - name: Install Boost
-        if: steps.cache-boost.outputs.cache-hit != 'true'
-        run: ./install-boost.sh
-
-      - name: Check submodules
-        run: git submodule > submodule-status
-
-      - name: Cache thirdparty
-        id: cache-thirdparty
-        uses: actions/cache@v3
-        with:
-          path: |
-            thirdparty/bin
-            thirdparty/include
-            thirdparty/lib
-            thirdparty/share
-          key: ${{ runner.os }}-thirdparty-${{ hashFiles('submodule-status') }}
-
-      - name: Build thirdparty
-        if: steps.cache-thirdparty.outputs.cache-hit != 'true'
-        run: make xcode/thirdparty
-
-      - name: Install Rime plugins
-        run: ./action-install-plugins-macos.sh
-
-      - name: Unit test
-        run: make xcode/test
-
-      - name: Upload artifactory
-        run: |
-          make xcode/dist
-          echo TODO
   windows:
-    runs-on: windows-latest
-    env:
-      boost_version: 1.78.0
-      BOOST_ROOT: ${{ github.workspace }}\thirdparty\src\boost_1_78_0
+    uses: ./.github/workflows/windows-build.yml
+    with:
+      rime_plugins: rime/librime-charcode hchunhui/librime-lua lotem/librime-octagram lotem/librime-proto
+
+  release:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout last commit
-        uses: actions/checkout@v3
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create GitHub release
+        uses: 'marvinpinto/action-automatic-releases@latest'
         with:
-          fetch-depth: 0
-          submodules: "recursive"
-
-      - name: Configure build environment
-        run: copy env.vs2022.bat env.bat
-
-      - name: Cache Boost
-        id: cache-boost
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ env.BOOST_ROOT }}.7z
-            ${{ env.BOOST_ROOT }}\stage
-          key: ${{ runner.os }}-boost-${{ env.boost_version }}
-
-      - name: Extract Boost source tarball
-        if: steps.cache-boost.outputs.cache-hit == 'true'
-        run: |
-          pushd thirdparty\src
-          7z x ${{ env.BOOST_ROOT }}.7z
-          popd
-
-      - name: Install Boost
-        if: steps.cache-boost.outputs.cache-hit != 'true'
-        run: .\install-boost.bat
-
-      - name: Check submodules
-        run: git submodule > submodule-status
-
-      - name: Cache thirdparty
-        id: cache-thirdparty
-        uses: actions/cache@v3
-        with:
-          path: |
-            thirdparty\bin
-            thirdparty\include
-            thirdparty\lib
-            thirdparty\share
-          key: ${{ runner.os }}-thirdparty-${{ hashFiles('submodule-status') }}
-
-      - name: Build thirdparty
-        if: steps.cache-thirdparty.outputs.cache-hit != 'true'
-        run: .\build.bat thirdparty
-
-      - name: Install Rime plugins
-        run: .\action-install-plugins-windows.bat
-
-      - name: Unit test
-        run: .\build.bat test
-
-      - name: Upload artifactory
-        run: echo TODO
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          title: librime ${{ github.ref_name }}
+          files: |
+            artifact/*
