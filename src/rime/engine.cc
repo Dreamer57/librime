@@ -195,9 +195,9 @@ void ConcreteEngine::TranslateSegments(Segmentation* segments) {
       continue;
     string input = segments->input().substr(segment.start, len);
 //    LOG(INFO) << "translating segment: " << input;
-    for (set<string>::iterator it = segment.tags.begin(); it != segment.tags.end(); ++it) {
-//        LOG(INFO) << "translating segment2: " << *it;
-    }
+//    for (set<string>::iterator it = segment.tags.begin(); it != segment.tags.end(); ++it) {
+////        LOG(INFO) << "translating segment2: " << *it;
+//    }
     
     auto menu = New<Menu>();
     for (auto& translator : translators_) {
