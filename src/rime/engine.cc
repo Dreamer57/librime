@@ -94,7 +94,7 @@ ConcreteEngine::~ConcreteEngine() {
 }
 
 bool ConcreteEngine::ProcessKey(const KeyEvent& key_event) {
-  DLOG(INFO) << "process key: " << key_event;
+//  LOG(INFO) << "process key: " << key_event;
   ProcessResult ret = kNoop;
   for (auto& processor : processors_) {
     ret = processor->ProcessKeyEvent(key_event);
@@ -121,7 +121,7 @@ void ConcreteEngine::OnContextUpdate(Context* ctx) {
 
 void ConcreteEngine::OnOptionUpdate(Context* ctx, const string& option) {
   if (!ctx) return;
-  LOG(INFO) << "updated option: " << option;
+//  LOG(INFO) << "updated option: " << option;
   // apply new option to active segment
   if (ctx->IsComposing()) {
     ctx->RefreshNonConfirmedComposition();
@@ -134,7 +134,7 @@ void ConcreteEngine::OnOptionUpdate(Context* ctx, const string& option) {
 
 void ConcreteEngine::OnPropertyUpdate(Context* ctx, const string& property) {
   if (!ctx) return;
-  LOG(INFO) << "updated property: " << property;
+//  LOG(INFO) << "updated property: " << property;
   // notification
   string value = ctx->get_property(property);
   string msg(property + "=" + value);
@@ -194,7 +194,11 @@ void ConcreteEngine::TranslateSegments(Segmentation* segments) {
     if (len == 0)
       continue;
     string input = segments->input().substr(segment.start, len);
-    DLOG(INFO) << "translating segment: " << input;
+//    LOG(INFO) << "translating segment: " << input;
+    for (set<string>::iterator it = segment.tags.begin(); it != segment.tags.end(); ++it) {
+//        LOG(INFO) << "translating segment2: " << *it;
+    }
+    
     auto menu = New<Menu>();
     for (auto& translator : translators_) {
       auto translation = translator->Query(input, segment);

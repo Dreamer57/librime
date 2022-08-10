@@ -63,6 +63,17 @@ debug-with-icu:
 	$(CMAKE_BOOST_OPTIONS)
 	cmake --build $(build) --config Debug
 
+debug-with-icu-dist:
+	cmake . -B$(build) -GXcode \
+	-DBUILD_STATIC=ON \
+	-DBUILD_SEPARATE_LIBS=ON \
+	-DBUILD_WITH_ICU=ON \
+	-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+	-DCMAKE_INSTALL_PREFIX="$(dist_dir)" \
+	-DCMAKE_PREFIX_PATH="$(icu_prefix)" \
+	$(CMAKE_BOOST_OPTIONS)
+	cmake --build $(build) --config Debug --target install
+
 clean:
 	rm -rf build > /dev/null 2>&1 || true
 	rm -rf debug > /dev/null 2>&1 || true

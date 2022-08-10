@@ -178,8 +178,8 @@ an<Translation> ScriptTranslator::Query(const string& input,
     return nullptr;
   if (!segment.HasTag(tag_))
     return nullptr;
-  DLOG(INFO) << "input = '" << input
-             << "', [" << segment.start << ", " << segment.end << ")";
+//  LOG(INFO) << "input = '" << input
+////             << "', [" << segment.start << ", " << segment.end << ")";
 
   FinishSession();
 
@@ -481,8 +481,8 @@ void ScriptTranslation::PrepareCandidate() {
       user_phrase_code_length >= phrase_code_length) {
     UserDictEntryIterator& uter = user_phrase_iter_->second;
     const auto& entry = uter.Peek();
-    DLOG(INFO) << "user phrase '" << entry->text
-               << "', code length: " << user_phrase_code_length;
+//    LOG(INFO) << "user phrase '" << entry->text
+//               << "', code length: " << user_phrase_code_length;
     cand = New<Phrase>(translator_->language(),
                        "user_phrase",
                        start_,
@@ -495,8 +495,8 @@ void ScriptTranslation::PrepareCandidate() {
   else if (phrase_code_length > 0) {
     DictEntryIterator& iter = phrase_iter_->second;
     const auto& entry = iter.Peek();
-    DLOG(INFO) << "phrase '" << entry->text
-               << "', code length: " << phrase_code_length;
+//    LOG(INFO) << "phrase '" << entry->text
+//               << "', code length: " << phrase_code_length;
     cand = New<Phrase>(translator_->language(),
                        "phrase",
                        start_,

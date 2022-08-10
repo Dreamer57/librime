@@ -147,7 +147,7 @@ an<Translation> ReverseLookupTranslator::Query(const string& input,
     Initialize();  // load reverse dict at first use
   if (!dict_ || !dict_->loaded())
     return nullptr;
-  DLOG(INFO) << "input = '" << input
+  LOG(INFO) << "input = '" << input
              << "', [" << segment.start << ", " << segment.end << ")";
 
   const string& preedit(input);
@@ -161,11 +161,11 @@ an<Translation> ReverseLookupTranslator::Query(const string& input,
     code.resize(code.length() - suffix_.length());
   }
 
-  if (start > 0) {
-    // usually translators do not modify the segment directly;
-    // prompt text is best set by a processor or a segmentor.
-    const_cast<Segment*>(&segment)->prompt = tips_;
-  }
+//  if (start > 0) {
+//    // usually translators do not modify the segment directly;
+//    // prompt text is best set by a processor or a segmentor.
+//    const_cast<Segment*>(&segment)->prompt = tips_;
+//  }
 
   DictEntryIterator iter;
   bool quality = false;

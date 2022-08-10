@@ -15,10 +15,12 @@ TagMatching::TagMatching(const Ticket& ticket) {
   if (!ticket.schema)
     return;
   Config* config = ticket.schema->config();
+//    LOG(INFO) << "TagMatching schema_id_:" << ticket.schema->schema_id() << "ns:" << ticket.name_space;
   if (auto tags = config->GetList(ticket.name_space + "/tags")) {
     for (auto it = tags->begin(); it != tags->end(); ++it) {
       if (Is<ConfigValue>(*it)) {
         tags_.push_back(As<ConfigValue>(*it)->str());
+//          LOG(INFO) << "tagmatching tag:" << As<ConfigValue>(*it)->str();
       }
     }
   }

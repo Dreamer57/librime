@@ -157,6 +157,7 @@ typedef struct rime_status_t {
   Bool is_simplified;
   Bool is_traditional;
   Bool is_ascii_punct;
+  Bool is_hide_candidates;
 } RimeStatus;
 
 typedef struct rime_candidate_list_iterator_t {

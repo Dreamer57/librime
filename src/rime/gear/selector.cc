@@ -233,8 +233,9 @@ bool Selector::SelectCandidateAt(Context* ctx, int index) {
   if (comp.empty())
     return false;
   int page_size = engine_->schema()->page_size();
-  if (index >= page_size)
-    return false;
+    //    dr57修改，选出隐藏候选。
+//  if (index >= page_size)
+//    return false;
   int selected_index = comp.back().selected_index;
   int page_start = (selected_index / page_size) * page_size;
   return ctx->Select(page_start + index);

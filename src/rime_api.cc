@@ -369,6 +369,7 @@ RIME_API Bool RimeGetStatus(RimeSessionId session_id, RimeStatus* status) {
   status->is_simplified = Bool(ctx->get_option("simplification"));
   status->is_traditional = Bool(ctx->get_option("traditional"));
   status->is_ascii_punct = Bool(ctx->get_option("ascii_punct"));
+  status->is_hide_candidates = Bool(ctx->get_option("hide_candidates"));
   return True;
 }
 
