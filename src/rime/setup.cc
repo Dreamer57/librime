@@ -8,6 +8,9 @@
 #include <rime/build_config.h>
 
 #ifdef RIME_ENABLE_LOGGING
+#ifdef _WIN32
+#define GLOG_NO_ABBREVIATED_SEVERITIES
+#endif // _WIN32
 #include <glog/logging.h>
 #endif  // RIME_ENABLE_LOGGING
 
@@ -69,6 +72,7 @@ RIME_API void SetupDeployer(RimeTraits *traits) {
 RIME_API void SetupLogging(const char* app_name, int min_log_level, const char* log_dir) {
 #ifdef RIME_ENABLE_LOGGING
   FLAGS_minloglevel = min_log_level;
+  FLAGS_alsologtostderr = true;
   if (log_dir) {
     FLAGS_log_dir = log_dir;
   }
