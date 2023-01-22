@@ -598,7 +598,7 @@ RIME_MODULE_INITIALIZER(rime_register_module_##name) { \
     module.initialize = rime_##name##_initialize; \
     module.finalize = rime_##name##_finalize; \
   } \
-  rime_get_api()->register_module(&module); \
+  RimeRegisterModule(&module); \
 }
 
 /*!
@@ -616,7 +616,7 @@ RIME_MODULE_INITIALIZER(rime_register_module_##name) { \
     module.finalize = rime_##name##_finalize; \
     rime_customize_module_##name(&module); \
   } \
-  rime_get_api()->register_module(&module); \
+  RimeRegisterModule(&module); \
 } \
 static void rime_customize_module_##name(RimeModule* module)
 
