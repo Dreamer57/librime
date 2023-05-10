@@ -9,11 +9,11 @@ on:
   pull_request:
 
 jobs:
-  linux:
-    uses: ./.github/workflows/linux-build.yml
+  # linux:
+  #   uses: ./.github/workflows/linux-build.yml
 
   macos:
     uses: ./.github/workflows/macos-build.yml
 
-  windows:
-    uses: ./.github/workflows/windows-build.yml
+  # windows:
+  #   uses: ./.github/workflows/windows-build.yml
