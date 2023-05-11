@@ -11,7 +11,8 @@ endif
 export SDKROOT ?= $(shell xcrun --sdk macosx --show-sdk-path)
 
 # https://cmake.org/cmake/help/latest/envvar/MACOSX_DEPLOYMENT_TARGET.html
-export MACOSX_DEPLOYMENT_TARGET ?= $$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)
+# export MACOSX_DEPLOYMENT_TARGET ?= $$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)
+export MACOSX_DEPLOYMENT_TARGET ?= 13 # dr57
 
 ifdef BUILD_UNIVERSAL
 # https://cmake.org/cmake/help/latest/envvar/CMAKE_OSX_ARCHITECTURES.html
