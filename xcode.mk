@@ -18,6 +18,14 @@ ifdef BUILD_UNIVERSAL
 # https://cmake.org/cmake/help/latest/envvar/CMAKE_OSX_ARCHITECTURES.html
 export CMAKE_OSX_ARCHITECTURES = arm64;x86_64
 endif
+# dr57
+ifdef ARCHS
+BUILD_SETTINGS += ARCHS="$(ARCHS)"
+BUILD_SETTINGS += ONLY_ACTIVE_ARCH=NO
+_=$() $()
+export CMAKE_OSX_ARCHITECTURES = $(subst $(_),;,$(ARCHS))
+endif
+# dr57 end
 
 # boost::locale library from homebrew links to homebrewed icu4c libraries
 # dr57
