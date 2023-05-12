@@ -26,7 +26,10 @@ download_icu4c_source() {
 }
 
 icu4c_libs="${icu4c_libs=filesystem,regex,system}"
-icu4c_cxxflags='-arch arm64 -arch x86_64'
+# dr57
+# icu4c_cxxflags='-arch arm64 -arch x86_64'
+icu4c_cxxflags='-arch arm64'
+# dr57 end
 
 build_icu4c_macos() {
     cd "${icu4c_ROOT}"

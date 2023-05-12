@@ -24,7 +24,10 @@ download_boost_source() {
 }
 
 boost_libs="${boost_libs=filesystem,regex,system}"
-boost_cxxflags='-arch arm64 -arch x86_64'
+# dr57
+# boost_cxxflags='-arch arm64 -arch x86_64'
+boost_cxxflags='-arch arm64'
+# dr57 end
 
 build_boost_macos() {
     cd "${BOOST_ROOT}"
