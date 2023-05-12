@@ -11,8 +11,8 @@ endif
 export SDKROOT ?= $(shell xcrun --sdk macosx --show-sdk-path)
 
 # https://cmake.org/cmake/help/latest/envvar/MACOSX_DEPLOYMENT_TARGET.html
-# export MACOSX_DEPLOYMENT_TARGET ?= $$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)
-export MACOSX_DEPLOYMENT_TARGET ?= 13 # dr57
+export MACOSX_DEPLOYMENT_TARGET ?= $$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)
+# export MACOSX_DEPLOYMENT_TARGET ?= 13 # dr57
 
 ifdef BUILD_UNIVERSAL
 # https://cmake.org/cmake/help/latest/envvar/CMAKE_OSX_ARCHITECTURES.html
@@ -20,7 +20,11 @@ export CMAKE_OSX_ARCHITECTURES = arm64;x86_64
 endif
 
 # boost::locale library from homebrew links to homebrewed icu4c libraries
-icu_prefix = $(shell brew --prefix)/opt/icu4c
+# dr57
+# icu_prefix = $(shell brew --prefix)/opt/icu4c
+icu_prefix = $(shell pwd)/deps/src/icu/
+#dr57 end
+
 
 debug debug-with-icu test-debug: build ?= debug
 build ?= build
@@ -100,6 +104,11 @@ test-debug: debug
 # `thirdparty` is deprecated in favor of `deps`
 deps thirdparty:
 	$(MAKE) -f deps.mk
+
+# dr57
+deps/icu4c thirdparty/icu4c:
+	./install-icu4c.sh
+# dr57 end
 
 deps/boost thirdparty/boost:
 	./install-boost.sh
