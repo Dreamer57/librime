@@ -72,3 +72,10 @@ yaml-cpp:
 	-DCMAKE_BUILD_TYPE:STRING="Release" \
 	-DCMAKE_INSTALL_PREFIX:PATH="$(rime_root)" \
 	&& cmake --build $(build) --target install
+
+# dr57
+icu4c:
+	cd $(src_dir)/icu; \
+	runConfigureICU MacOSX; \
+	make;
+# dr57 end
