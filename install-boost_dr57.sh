@@ -3,15 +3,18 @@ set -ex
 
 RIME_ROOT="$(cd "$(dirname "$0")"; pwd)"
 
-boost_version="${boost_version=1.81.0}"
+boost_version="${boost_version=1.78.0}"
+# boost_version="${boost_version=1.81.0}"
 boost_x_y_z="${boost_version//./_}"
 
 BOOST_ROOT="${BOOST_ROOT=${RIME_ROOT}/deps/boost_${boost_x_y_z}}"
 
 boost_tarball="boost_${boost_x_y_z}.tar.bz2"
 download_url="https://boostorg.jfrog.io/artifactory/main/release/${boost_version}/source/${boost_tarball}"
-boost_tarball_sha256sum_1_78_0='71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa  boost_1_81_0.tar.bz2'
+boost_tarball_sha256sum_1_78_0='8681f175d4bdb26c52222665793eef08490d7758529330f98d3b29dd0735bccc  boost_1_78_0.tar.bz2'
+# boost_tarball_sha256sum_1_81_0='71feeed900fbccca04a3b4f2f84a7c217186f28a940ed8b7ed4725986baf99fa  boost_1_81_0.tar.bz2'
 boost_tarball_sha256sum="${boost_tarball_sha256sum=${boost_tarball_sha256sum_1_78_0}}"
+# boost_tarball_sha256sum="${boost_tarball_sha256sum=${boost_tarball_sha256sum_1_81_0}}"
 
 download_boost_source() {
     cd "${RIME_ROOT}/deps"
