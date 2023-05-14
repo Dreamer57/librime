@@ -30,7 +30,7 @@ boost_libs="${boost_libs=filesystem,regex,system,locale}"
 # dr57
 # boost_cxxflags='-arch arm64 -arch x86_64'
 # c++11 icu4c要c++11才能正常加载
-boost_cxxflags='-arch arm64 -std=c++11'
+boost_cxxflags='-arch arm64 -arch x86_64 -std=c++11'
 # icu_root="${RIME_ROOT}/deps/icu4c_72_1"
 # dr57 end
 
