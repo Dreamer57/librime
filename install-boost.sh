@@ -33,6 +33,11 @@ boost_libs="${boost_libs=filesystem,regex,system,locale}"
 boost_cxxflags='-arch arm64 -arch x86_64 -std=c++11'
 # icu_root="${RIME_ROOT}/deps/icu4c_72_1"
 # dr57 end
+# dr57
+ifdef ARCHS
+boost_cxxflags="-arch $(ARCHS) -std=c++11"
+endif
+# dr57 end
 
 build_boost_macos() {
     cd "${BOOST_ROOT}"
