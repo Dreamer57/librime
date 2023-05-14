@@ -121,6 +121,12 @@ deps/icu4c thirdparty/icu4c:
 deps/boost thirdparty/boost:
 	./install-boost.sh
 
+# dr57
+deps/boost-dr57:
+	# 自用使用 arm64 编译
+	./install-boost_dr57.sh
+# dr57 end
+
 deps/%:
 	$(MAKE) -f deps.mk $(@:deps/%=%)
 
