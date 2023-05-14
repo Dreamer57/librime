@@ -1,7 +1,7 @@
 project(rime-often_charset_filter)
 cmake_minimum_required(VERSION 3.10)
 
-option(BUILD_WITH_ICU "Build by explicitly linking to ICU libraries" ON)
+option(BUILD_WITH_ICU "Build by explicitly linking to ICU libraries" OFF)
 
 if (BUILD_WITH_ICU)
   find_package(ICU COMPONENTS uc)
@@ -33,7 +33,7 @@ add_library(rime-often_charset_filter-deps INTERFACE)
 target_link_libraries(rime-often_charset_filter-deps INTERFACE
   ${Boost_LOCALE_LIBRARIES}
   ${ICONV_LIBRARIES}
-  ${ICU_LIBRARIES}
+  ${ICU_LIBRARIES}   # 压根就没用上 icu
 )
 
 set(often_charset_filter_library rime-often_charset_filter)

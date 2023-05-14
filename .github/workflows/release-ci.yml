@@ -10,10 +10,11 @@ jobs:
     uses: ./.github/workflows/linux-build.yml
 
   macos:
-    uses: ./.github/workflows/macos-build.yml
+    # uses: ./.github/workflows/macos-build.yml
+    uses: ./.github/workflows/macos-build_dr57.yml
     with:
-      build_variant: '-universal'
-      rime_plugins: rime/librime-charcode hchunhui/librime-lua lotem/librime-octagram
+      # build_variant: '-universal'   # dr57 arm64
+      # rime_plugins: rime/librime-charcode hchunhui/librime-lua lotem/librime-octagram   #dr57 not need
 
   windows:
     uses: ./.github/workflows/windows-build.yml

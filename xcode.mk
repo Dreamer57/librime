@@ -30,7 +30,7 @@ endif
 # boost::locale library from homebrew links to homebrewed icu4c libraries
 # dr57
 # icu_prefix = $(shell brew --prefix)/opt/icu4c
-icu_prefix = $(shell pwd)/deps/src/icu/
+icu_prefix = $(shell pwd)/deps/icu4c_72_1
 #dr57 end
 
 
