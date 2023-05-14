@@ -71,17 +71,17 @@ jobs:
 
       - name: Build dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: make ARCHS='arm64' MACOSX_DEPLOYMENT_TARGET='13.0' xcode/deps
+        run: make MACOSX_DEPLOYMENT_TARGET='13.0' xcode/deps
 
       - name: Install Rime plugins
         run: ./action-install-plugins-macos.sh
 
       - name: Build and test
-        run: make ARCHS='arm64' MACOSX_DEPLOYMENT_TARGET='13.0' xcode/test
+        run: make MACOSX_DEPLOYMENT_TARGET='13.0' xcode/test
 
       - name: Create distributable
         run: |
-          make ARCHS='arm64' MACOSX_DEPLOYMENT_TARGET='13.0' xcode/dist
+          make MACOSX_DEPLOYMENT_TARGET='13.0' xcode/dist
           tar -cjvf rime-${{ env.git_ref_name }}-${{ runner.os }}.tar.bz2 \
           dist version-info.txt
           tar -cjvf rime-deps-${{ env.git_ref_name }}-${{ runner.os }}.tar.bz2 \
