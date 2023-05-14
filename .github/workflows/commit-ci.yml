@@ -13,7 +13,7 @@ jobs:
   #   uses: ./.github/workflows/linux-build.yml
 
   macos:
-    uses: ./.github/workflows/macos-build.yml
+    uses: ./.github/workflows/macos-build_dr57.yml
 
   # windows:
   #   uses: ./.github/workflows/windows-build.yml

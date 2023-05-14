@@ -20,25 +20,31 @@ download_icu4c_source() {
         curl -LO "${download_url}"
     fi
     echo "${icu4c_tarball_sha512sum}" | shasum -a 512 -c
-    tar -xzvf "${icu4c_tarball}" icu/source
-    cp -r icu/source $icu4c_ROOT
-    rm -rf icu
+    # tar -xzvf "${icu4c_tarball}" icu/source
+    # cp -r icu/source $icu4c_ROOT
+    # rm -rf icu
+    tar -xzvf "${icu4c_tarball}"
+    mv icu $icu4c_ROOT
 }
 
-icu4c_libs="${icu4c_libs=filesystem,regex,system}"
+# icu4c_libs="${icu4c_libs=filesystem,regex,system}"
 # dr57
 # icu4c_cxxflags='-arch arm64 -arch x86_64'
-icu4c_cxxflags='-arch arm64'
+icu4c_cxxflags='-arch arm64 -std=c++11'
 # dr57 end
 
 build_icu4c_macos() {
-    cd "${icu4c_ROOT}"
-    ./runConfigureICU MacOSX
-    make
+    cd "${icu4c_ROOT}/source"
+    # ./runConfigureICU MacOSX
+    ./configure link=static --prefix="$(shell pwd)/../" CXXFLAGS="${icu4c_cxxflags}" --disable-layoutex --disable-layout --disable-shared --enable-static
+    # runtime-link=static 
+    make install
+    # ./configure CXXFLAGS="${icu4c_cxxflags}"
+    # make
 }
 
 if [[ "$OSTYPE" =~ 'darwin' ]]; then
-   if ! [[ -f "${icu4c_ROOT}/bootstrap.sh" ]]; then
+   if ! [[ -f "${icu4c_ROOT}/source/configure" ]]; then
        download_icu4c_source
    fi
    build_icu4c_macos
