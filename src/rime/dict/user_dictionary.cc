@@ -8,7 +8,6 @@
 #include <cfloat>
 #include <cmath>
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/scope_exit.hpp>
 #include <rime/common.h>
 #include <rime/language.h>
@@ -17,21 +16,26 @@
 #include <rime/ticket.h>
 #include <rime/algo/dynamics.h>
 #include <rime/algo/syllabifier.h>
+#include <rime/algo/strings.h>
 #include <rime/dict/db.h>
 #include <rime/dict/table.h>
 #include <rime/dict/user_dictionary.h>
+#include <rime/dict/vocabulary.h>
 
 namespace rime {
 
 struct DfsState {
   size_t depth_limit;
+  size_t predict_word_from_depth;
   TickCount present_tick;
   Code code;
   vector<double> credibility;
-  map<int, DictEntryList> query_result;
+  hash_map<int, DictEntryList> query_result;
   an<DbAccessor> accessor;
   string key;
   string value;
+
+  size_t depth() const { return code.size(); }
 
   bool IsExactMatch(const string& prefix) {
     return boost::starts_with(key, prefix + '\t');
@@ -39,7 +43,8 @@ struct DfsState {
   bool IsPrefixMatch(const string& prefix) {
     return boost::starts_with(key, prefix);
   }
-  void RecruitEntry(size_t pos);
+  void RecruitEntry(size_t pos,
+                    hash_map<string, SyllableId>* syllabary = nullptr);
   bool NextEntry() {
     if (!accessor->GetNextRecord(&key, &value)) {
       key.clear();
@@ -64,11 +69,31 @@ struct DfsState {
   }
 };
 
-void DfsState::RecruitEntry(size_t pos) {
+void DfsState::RecruitEntry(size_t pos,
+                            hash_map<string, SyllableId>* syllabary) {
+  string full_code;
   auto e = UserDictionary::CreateDictEntry(key, value, present_tick,
-                                           credibility.back());
+                                           credibility.back(),
+                                           syllabary ? &full_code : nullptr);
   if (e) {
-    e->code = code;
+    if (syllabary) {
+      vector<string> syllables =
+          strings::split(full_code, " ", strings::SplitBehavior::SkipToken);
+      Code numeric_code;
+      for (auto s = syllables.begin(); s != syllables.end(); ++s) {
+        auto found = syllabary->find(*s);
+        if (found == syllabary->end()) {
+          LOG(ERROR) << "failed to recruit dict entry '" << e->text
+                     << "', unrecognized syllable: " << *s;
+          return;
+        }
+        numeric_code.push_back(found->second);
+      }
+      e->code = numeric_code;
+      e->matching_code_size = code.size();
+    } else {
+      e->code = code;
+    }
     DLOG(INFO) << "add entry at pos " << pos;
     query_result[pos].push_back(e);
   }
@@ -127,8 +152,7 @@ bool UserDictEntryIterator::Next() {
 // UserDictionary members
 
 UserDictionary::UserDictionary(const string& name, an<Db> db)
-    : name_(name), db_(db) {
-}
+    : name_(name), db_(db) {}
 
 UserDictionary::~UserDictionary() {
   if (loaded()) {
@@ -136,8 +160,7 @@ UserDictionary::~UserDictionary() {
   }
 }
 
-void UserDictionary::Attach(const an<Table>& table,
-                            const an<Prism>& prism) {
+void UserDictionary::Attach(const an<Table>& table, const an<Prism>& prism) {
   table_ = table;
   prism_ = prism;
 }
@@ -173,7 +196,7 @@ bool UserDictionary::readonly() const {
 // there may be multiple edges that start at current_pos, and ends at different
 // positions after current_pos. on each edge, there can be multiple syllables
 // the spelling on the edge maps to.
-// in order to enable forward scaning and to avoid backdating, our strategy is:
+// in order to enable forward scanning and to avoid backdating, our strategy is:
 // sort all those syllables from edges that starts at current_pos, so that
 // the syllables are in the same alphabetical order as the user db's.
 // this having been done by transposing the syllable graph into
@@ -204,7 +227,7 @@ void UserDictionary::DfsLookup(const SyllableGraph& syll_graph,
                << ", syll_id: " << spelling.first
                << ", num_spellings: " << spelling.second.size();
     state->code.push_back(spelling.first);
-    BOOST_SCOPE_EXIT( (&state) ) {
+    BOOST_SCOPE_EXIT((&state)) {
       state->code.pop_back();
     }
     BOOST_SCOPE_EXIT_END
@@ -214,9 +237,9 @@ void UserDictionary::DfsLookup(const SyllableGraph& syll_graph,
       auto props = spelling.second[i];
       if (i > 0 && props->type >= kAbbreviation)
         continue;
-      state->credibility.push_back(
-          state->credibility.back() + props->credibility);
-      BOOST_SCOPE_EXIT( (&state) ) {
+      state->credibility.push_back(state->credibility.back() +
+                                   props->credibility);
+      BOOST_SCOPE_EXIT((&state)) {
         state->credibility.pop_back();
       }
       BOOST_SCOPE_EXIT_END
@@ -233,10 +256,36 @@ void UserDictionary::DfsLookup(const SyllableGraph& syll_graph,
         if (!state->NextEntry())  // reached the end of db
           break;
       }
-      // the caller can limit the number of syllables to look up
-      if ((!state->depth_limit || state->code.size() < state->depth_limit) &&
-          state->IsPrefixMatch(prefix)) {  // 'b |e ' vs. 'b e f \tBefore'
-        DfsLookup(syll_graph, end_pos, prefix, state);
+      auto next_index = syll_graph.indices.find(end_pos);
+      if (next_index == syll_graph.indices.end()) {
+        // reached the end of input, predict word if requested
+        if (state->predict_word_from_depth != 0 &&
+            state->depth() >= state->predict_word_from_depth) {
+          while (state->IsPrefixMatch(prefix)) {
+            DLOG(INFO) << "prefix match found for '" << prefix << "'.";
+            if (syllabary_.empty()) {
+              Syllabary syllabary;
+              if (!table_->GetSyllabary(&syllabary)) {
+                LOG(ERROR) << "failed to get syllabary for user dict: "
+                           << name();
+                break;
+              }
+              SyllableId syllable_id = 0;
+              for (auto s = syllabary.begin(); s != syllabary.end(); ++s) {
+                syllabary_[*s] = syllable_id++;
+              }
+            }
+            state->RecruitEntry(end_pos, &syllabary_);
+            if (!state->NextEntry())  // reached the end of db
+              break;
+          }
+        }
+      } else {
+        // the caller can limit the number of syllables to look up
+        if ((!state->depth_limit || state->depth() < state->depth_limit) &&
+            state->IsPrefixMatch(prefix)) {  // 'b |e ' vs. 'b e f \tBefore'
+          DfsLookup(syll_graph, end_pos, prefix, state);
+        }
       }
     }
     if (!state->IsPrefixMatch(current_prefix))  // 'b |' vs. 'g o \tGo'
@@ -245,7 +294,8 @@ void UserDictionary::DfsLookup(const SyllableGraph& syll_graph,
   }
 }
 
-static an<UserDictEntryCollector> collect(map<int, DictEntryList>* source) {
+static an<UserDictEntryCollector> collect(
+    hash_map<int, DictEntryList>* source) {
   auto result = New<UserDictEntryCollector>();
   for (auto& x : *source) {
     (*result)[x.first].SetEntries(std::move(x.second));
@@ -253,16 +303,18 @@ static an<UserDictEntryCollector> collect(map<int, DictEntryList>* source) {
   return result;
 }
 
-an<UserDictEntryCollector>
-UserDictionary::Lookup(const SyllableGraph& syll_graph,
-                       size_t start_pos,
-                       size_t depth_limit,
-                       double initial_credibility) {
+an<UserDictEntryCollector> UserDictionary::Lookup(
+    const SyllableGraph& syll_graph,
+    size_t start_pos,
+    size_t depth_limit,
+    size_t predict_word_from_depth,
+    double initial_credibility) {
   if (!table_ || !prism_ || !loaded() ||
       start_pos >= syll_graph.interpreted_length)
     return nullptr;
   DfsState state;
   state.depth_limit = depth_limit;
+  state.predict_word_from_depth = predict_word_from_depth;
   FetchTickCount();
   state.present_tick = tick_ + 1;
   state.credibility.push_back(initial_credibility);
@@ -275,6 +327,21 @@ UserDictionary::Lookup(const SyllableGraph& syll_graph,
   // sort each group of homophones by weight
   for (auto& v : state.query_result) {
     v.second.Sort();
+  }
+  auto entries_with_word_completion =
+      state.query_result.find(state.predict_word_from_depth);
+  if (entries_with_word_completion != state.query_result.end()) {
+    auto& entries = entries_with_word_completion->second;
+    // if the top candidate is predictive match,
+    if (!entries.empty() && entries.front()->IsPredictiveMatch()) {
+      auto found =
+          std::find_if(entries.begin(), entries.end(),
+                       [](const auto& e) { return e->IsExactMatch(); });
+      if (found != entries.end()) {
+        // move the first exact match candidate to top.
+        std::rotate(entries.begin(), found, found + 1);
+      }
+    }
   }
   return collect(&state.query_result);
 }
@@ -346,7 +413,8 @@ bool UserDictionary::UpdateEntry(const DictEntry& entry, int commits) {
   return UpdateEntry(entry, commits, "");
 }
 
-bool UserDictionary::UpdateEntry(const DictEntry& entry, int commits,
+bool UserDictionary::UpdateEntry(const DictEntry& entry,
+                                 int commits,
                                  const string& new_entry_prefix) {
   string code_str(entry.custom_code);
   if (code_str.empty() && !TranslateCodeToString(entry.code, &code_str))
@@ -359,8 +427,7 @@ bool UserDictionary::UpdateEntry(const DictEntry& entry, int commits,
     if (v.tick > tick_) {
       v.tick = tick_;  // fix abnormal timestamp
     }
-  }
-  else if (!new_entry_prefix.empty()) {
+  } else if (!new_entry_prefix.empty()) {
     key.insert(0, new_entry_prefix);
   }
   if (commits > 0) {
@@ -369,12 +436,10 @@ bool UserDictionary::UpdateEntry(const DictEntry& entry, int commits,
     v.commits += commits;
     UpdateTickCount(1);
     v.dee = algo::formula_d(commits, (double)tick_, v.dee, (double)v.tick);
-  }
-  else if (commits == 0) {
+  } else if (commits == 0) {
     const double k = 0.1;
     v.dee = algo::formula_d(k, (double)tick_, v.dee, (double)v.tick);
-  }
-  else if (commits < 0) {  // mark as deleted
+  } else if (commits < 0) {  // mark as deleted
     v.commits = (std::min)(-1, -v.commits);
     v.dee = algo::formula_d(0.0, (double)tick_, v.dee, (double)v.tick);
   }
@@ -385,9 +450,8 @@ bool UserDictionary::UpdateEntry(const DictEntry& entry, int commits,
 bool UserDictionary::UpdateTickCount(TickCount increment) {
   tick_ += increment;
   try {
-    return db_->MetaUpdate("/tick", boost::lexical_cast<string>(tick_));
-  }
-  catch (...) {
+    return db_->MetaUpdate("/tick", std::to_string(tick_));
+  } catch (...) {
     return false;
   }
 }
@@ -400,14 +464,12 @@ bool UserDictionary::FetchTickCount() {
   string value;
   try {
     // an earlier version mistakenly wrote tick count into an empty key
-    if (!db_->MetaFetch("/tick", &value) &&
-        !db_->Fetch("", &value))
+    if (!db_->MetaFetch("/tick", &value) && !db_->Fetch("", &value))
       return false;
-    tick_ = boost::lexical_cast<TickCount>(value);
+    tick_ = std::stoul(value);
     return true;
-  }
-  catch (...) {
-    //tick_ = 0;
+  } catch (...) {
+    // tick_ = 0;
     return false;
   }
 }
@@ -425,7 +487,7 @@ bool UserDictionary::RevertRecentTransaction() {
   auto db = As<Transactional>(db_);
   if (!db || !db->in_transaction())
     return false;
-  if (time(NULL) - transaction_time_ > 3/*seconds*/)
+  if (time(NULL) - transaction_time_ > 3 /*seconds*/)
     return false;
   return db->AbortTransaction();
 }
@@ -438,12 +500,15 @@ bool UserDictionary::CommitPendingTransaction() {
   return false;
 }
 
-bool UserDictionary::TranslateCodeToString(const Code& code,
-                                           string* result) {
-  if (!table_ || !result) return false;
+bool UserDictionary::TranslateCodeToString(const Code& code, string* result) {
+  if (!table_ || !result)
+    return false;
   result->clear();
   for (const SyllableId& syllable_id : code) {
-    string spelling = table_->GetSyllableById(syllable_id);
+    string spelling = rev_syllabary_.count(syllable_id)
+                          ? rev_syllabary_[syllable_id]
+                          : (rev_syllabary_[syllable_id] =
+                                 table_->GetSyllableById(syllable_id));
     if (spelling.empty()) {
       LOG(ERROR) << "Error translating syllable_id '" << syllable_id << "'.";
       result->clear();
@@ -456,10 +521,10 @@ bool UserDictionary::TranslateCodeToString(const Code& code,
 }
 
 an<DictEntry> UserDictionary::CreateDictEntry(const string& key,
-                                                      const string& value,
-                                                      TickCount present_tick,
-                                                      double credibility,
-                                                      string* full_code) {
+                                              const string& value,
+                                              TickCount present_tick,
+                                              double credibility,
+                                              string* full_code) {
   an<DictEntry> e;
   size_t separator_pos = key.find('\t');
   if (separator_pos == string::npos)
@@ -476,16 +541,13 @@ an<DictEntry> UserDictionary::CreateDictEntry(const string& key,
   e->text = key.substr(separator_pos + 1);
   e->commit_count = v.commits;
   // TODO: argument s not defined...
-  double weight = algo::formula_p(0,
-                                  (double)v.commits / present_tick,
-                                  (double)present_tick,
-                                  v.dee);
+  double weight = algo::formula_p(0, (double)v.commits / present_tick,
+                                  (double)present_tick, v.dee);
   e->weight = log(weight > 0 ? weight : DBL_EPSILON) + credibility;
   if (full_code) {
     *full_code = key.substr(0, separator_pos);
   }
-  DLOG(INFO) << "text = '" << e->text
-             << "', code_len = " << e->code.size()
+  DLOG(INFO) << "text = '" << e->text << "', code_len = " << e->code.size()
              << ", weight = " << e->weight
              << ", commit_count = " << e->commit_count
              << ", present_tick = " << present_tick;
@@ -494,10 +556,10 @@ an<DictEntry> UserDictionary::CreateDictEntry(const string& key,
 
 // UserDictionaryComponent members
 
-UserDictionaryComponent::UserDictionaryComponent() {
-}
+UserDictionaryComponent::UserDictionaryComponent() {}
 
-UserDictionary* UserDictionaryComponent::Create(const string& dict_name, const string& db_class) {
+UserDictionary* UserDictionaryComponent::Create(const string& dict_name,
+                                                const string& db_class) {
   auto db = db_pool_[dict_name].lock();
   if (!db) {
     auto component = Db::Require(db_class);
@@ -522,12 +584,10 @@ UserDictionary* UserDictionaryComponent::Create(const Ticket& ticket) {
   string dict_name;
   if (config->GetString(ticket.name_space + "/user_dict", &dict_name)) {
     // user specified name
-  }
-  else if (config->GetString(ticket.name_space + "/dictionary", &dict_name)) {
+  } else if (config->GetString(ticket.name_space + "/dictionary", &dict_name)) {
     // {dictionary: luna_pinyin.extra} implies {user_dict: luna_pinyin}
     dict_name = Language::get_language_component(dict_name);
-  }
-  else {
+  } else {
     LOG(ERROR) << ticket.name_space << "/dictionary not specified in schema '"
                << ticket.schema->schema_id() << "'.";
     return NULL;

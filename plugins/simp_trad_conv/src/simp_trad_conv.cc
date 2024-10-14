@@ -925,7 +925,7 @@ SimpTradConv::SimpTradConv(const Ticket& ticket) : Filter(ticket),
 void SimpTradConv::Initialize() {
   using namespace boost::filesystem;
   initialized_ = true;  // no retry
-  path opencc_config_path = opencc_config_;
+  path opencc_config_path = path(opencc_config_);
   if (opencc_config_path.extension().string() == ".ini") {
     LOG(ERROR) << "please upgrade opencc_config to an opencc 1.0 config file.";
     return;

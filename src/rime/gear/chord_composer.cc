@@ -25,6 +25,10 @@ ChordComposer::ChordComposer(const Ticket& ticket) : Processor(ticket) {
     config->GetBool("chord_composer/use_control", &use_control_);
     config->GetBool("chord_composer/use_alt", &use_alt_);
     config->GetBool("chord_composer/use_shift", &use_shift_);
+    config->GetBool("chord_composer/use_super", &use_super_);
+    config->GetBool("chord_composer/use_caps", &use_caps_);
+    config->GetBool("chord_composer/finish_chord_on_first_key_release",
+                    &finish_chord_on_first_key_release_);
     config->GetString("speller/delimiter", &delimiter_);
     algebra_.Load(config->GetList("chord_composer/algebra"));
     output_format_.Load(config->GetList("chord_composer/output_format"));
@@ -56,61 +60,76 @@ ProcessResult ChordComposer::ProcessFunctionKey(const KeyEvent& key_event) {
       raw_sequence_.clear();
     }
     ClearChord();
+    state_.Clear();
+
   } else if (ch == XK_BackSpace || ch == XK_Escape) {
     // clear the raw sequence
     raw_sequence_.clear();
     ClearChord();
+    state_.Clear();
   }
   return kNoop;
 }
 
 // Note: QWERTY layout only.
 static const char map_to_base_layer[] = {
-  " 1'3457'908=,-./"
-  "0123456789;;,=./"
-  "2abcdefghijklmno"
-  "pqrstuvwxyz[\\]6-"
-  "`abcdefghijklmno"
-  "pqrstuvwxyz[\\]`"
-};
+    " 1'3457'908=,-./"
+    "0123456789;;,=./"
+    "2abcdefghijklmno"
+    "pqrstuvwxyz[\\]6-"
+    "`abcdefghijklmno"
+    "pqrstuvwxyz[\\]`"};
 
 inline static int get_base_layer_key_code(const KeyEvent& key_event) {
   int ch = key_event.keycode();
   bool is_shift = key_event.shift();
-  return (is_shift && ch >= 0x20 && ch <= 0x7e)
-      ? map_to_base_layer[ch - 0x20] : ch;
+  return (is_shift && ch >= 0x20 && ch <= 0x7e) ? map_to_base_layer[ch - 0x20]
+                                                : ch;
+}
+
+inline static bool finish_chord_on_all_keys_released(
+    const ChordingState& state) {
+  return state.pressed_keys.empty();
+}
+
+bool ChordComposer::FinishChordConditionIsMet() const {
+  return finish_chord_on_first_key_release_ ||
+         finish_chord_on_all_keys_released(state_);
 }
 
 ProcessResult ChordComposer::ProcessChordingKey(const KeyEvent& key_event) {
-  if (key_event.ctrl() || key_event.alt()) {
+  if (key_event.ctrl() || key_event.alt() || key_event.super() ||
+      key_event.caps()) {
     raw_sequence_.clear();
   }
-  if ((key_event.ctrl() && !use_control_) ||
-      (key_event.alt() && !use_alt_) ||
-      (key_event.shift() && !use_shift_)) {
+  if ((key_event.ctrl() && !use_control_) || (key_event.alt() && !use_alt_) ||
+      (key_event.shift() && !use_shift_) ||
+      (key_event.super() && !use_super_) || (key_event.caps() && !use_caps_)) {
     ClearChord();
+    state_.Clear();
     return kNoop;
   }
   int ch = get_base_layer_key_code(key_event);
   // non chording key
-  if (std::find(chording_keys_.begin(),
-                chording_keys_.end(),
+  if (std::find(chording_keys_.begin(), chording_keys_.end(),
                 KeyEvent{ch, 0}) == chording_keys_.end()) {
     ClearChord();
+    state_.Clear();
     return kNoop;
   }
   // chording key
   editing_chord_ = true;
   bool is_key_up = key_event.release();
   if (is_key_up) {
-    if (pressed_.erase(ch) != 0 && pressed_.empty()) {
-      FinishChord();
+    if (state_.ReleaseKey(ch) && FinishChordConditionIsMet() &&
+        !state_.recognized_chord.empty()) {
+      FinishChord(state_.recognized_chord);
+      state_.recognized_chord.clear();
     }
-  } else {  // key down
-    pressed_.insert(ch);
-    bool updated = chord_.insert(ch).second;
-    if (updated)
-      UpdateChord();
+  } else {  // key down, ignore repeated key down events
+    if (state_.PressKey(ch) && state_.AddKeyToChord(ch)) {
+      UpdateChord(state_.recognized_chord);
+    }
   }
   editing_chord_ = false;
   return kAccepted;
@@ -139,10 +158,10 @@ ProcessResult ChordComposer::ProcessKeyEvent(const KeyEvent& key_event) {
   return ProcessFunctionKey(key_event);
 }
 
-string ChordComposer::SerializeChord() {
+string ChordComposer::SerializeChord(const Chord& chord) {
   KeySequence key_sequence;
   for (KeyEvent key : chording_keys_) {
-    if (chord_.find(key.keycode()) != chord_.end())
+    if (chord.find(key.keycode()) != chord.end())
       key_sequence.push_back(key);
   }
   string code = key_sequence.repr();
@@ -150,12 +169,17 @@ string ChordComposer::SerializeChord() {
   return code;
 }
 
-void ChordComposer::UpdateChord() {
+void ChordComposer::UpdateChord(const Chord& chord) {
   if (!engine_)
     return;
   Context* ctx = engine_->context();
   Composition& comp = ctx->composition();
-  string code = SerializeChord();
+  // do not show chord prompt if the chord is empty or only contains space.
+  if (chord.empty() || (chord.size() == 1 && chord.count(' ') > 0)) {
+    ClearChord();
+    return;
+  }
+  string code = SerializeChord(chord);
   prompt_format_.Apply(&code);
   if (comp.empty()) {
     // add a placeholder segment
@@ -170,10 +194,10 @@ void ChordComposer::UpdateChord() {
   last_segment.prompt = code;
 }
 
-void ChordComposer::FinishChord() {
+void ChordComposer::FinishChord(const Chord& chord) {
   if (!engine_)
     return;
-  string code = SerializeChord();
+  string code = SerializeChord(chord);
   output_format_.Apply(&code);
   ClearChord();
 
@@ -193,8 +217,6 @@ void ChordComposer::FinishChord() {
 }
 
 void ChordComposer::ClearChord() {
-  pressed_.clear();
-  chord_.clear();
   if (!engine_)
     return;
   Context* ctx = engine_->context();
@@ -226,8 +248,8 @@ void ChordComposer::OnUnhandledKey(Context* ctx, const KeyEvent& key) {
   // directly committed ascii should not be captured into the raw sequence
   // test case:
   // 3.14{Return} should not commit an extra sequence '14'
-  if ((key.modifier() & ~kShiftMask) == 0 &&
-      key.keycode() >= 0x20 && key.keycode() <= 0x7e) {
+  if ((key.modifier() & ~kShiftMask) == 0 && key.keycode() >= 0x20 &&
+      key.keycode() <= 0x7e) {
     raw_sequence_.clear();
     DLOG(INFO) << "clear raw sequence.";
   }
