@@ -42,6 +42,7 @@ jobs:
             set CXX=${{ matrix.cxx }}
             set CC=${{ matrix.cc }}
             set CMAKE_GENERATOR=Ninja
+            set boost_libs=locale
           "@
           Set-Content -Path $envfile -Value $envcontent
           cat $envfile
