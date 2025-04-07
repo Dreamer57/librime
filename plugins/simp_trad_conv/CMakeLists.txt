@@ -1,12 +1,6 @@
 project(rime-simp_trad_conv)
 cmake_minimum_required(VERSION 3.10)
 
-#option(BUILD_WITH_ICU "Build by explicitly linking to ICU libraries" OFF)
-
-#if (BUILD_WITH_ICU)
-#  find_package(ICU COMPONENTS uc)
-#endif()
-
 find_package(Iconv)
 if (ICONV_FOUND)
   include_directories(${ICONV_INCLUDE_DIRS})
@@ -46,7 +40,3 @@ set(simp_trad_conv_deps
 )
 set(plugin_deps ${simp_trad_conv_deps} PARENT_SCOPE)
 set(plugin_modules "simp_trad_conv" PARENT_SCOPE)
-
-#if(BUILD_TEST AND NOT BUILD_MERGED_PLUGINS)
-#  add_subdirectory(test)
-#endif()
