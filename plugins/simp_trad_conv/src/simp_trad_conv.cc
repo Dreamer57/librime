@@ -32,6 +32,7 @@ static const char* quote_right = "\xe3\x80\x95";  //"\xef\xbc\x89";
 
 namespace rime {
 
+using namespace simptradconv;
 
 static bool is_emoji(uint32_t ch) {
 

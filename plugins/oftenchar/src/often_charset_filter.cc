@@ -21,6 +21,7 @@
 
 namespace rime {
 
+using namespace oftenchar;
 
 static bool is_emoji(uint32_t ch) {
 

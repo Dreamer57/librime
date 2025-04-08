@@ -3,12 +3,16 @@
 
 #include <string>
 
-bool is_valid_encoding(const std::string& text, const std::string& charset);
+namespace simptradconv {
 
-#ifdef _WIN32
-bool is_valid_encoding_win(const std::string& text, const std::string& charset);
-#else
-bool is_valid_encoding_iconv(const std::string& text, const std::string& charset);
-#endif
+	bool is_valid_encoding(const std::string& text, const std::string& charset);
+
+	#ifdef _WIN32
+	bool is_valid_encoding_win(const std::string& text, const std::string& charset);
+	#else
+	bool is_valid_encoding_iconv(const std::string& text, const std::string& charset);
+	#endif
+
+}
 
 #endif

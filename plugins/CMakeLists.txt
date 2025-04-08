@@ -21,6 +21,7 @@ if(ENABLE_EXTERNAL_PLUGINS)
   set(plugins_modules ${plugins_modules} "plugins")
 endif()
 
+# github release ci 上强制不检测ENV{RIME_PLUGINS}。
 if(DEFINED ENV{RIME_PLUGINS_NO})
   set(plugins $ENV{RIME_PLUGINS})
   message(STATUS "Prescribed plugins: ${plugins}")
