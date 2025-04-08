@@ -5,7 +5,6 @@
 // 2011-12-12 GONG Chen <chen.sst@gmail.com>
 //
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <stdint.h>
 #include <utf8.h>
 #include <utility>
@@ -924,7 +923,6 @@ SimpTradConv::SimpTradConv(const Ticket& ticket) : Filter(ticket),
 }
 
 void SimpTradConv::Initialize() {
-  using namespace boost::filesystem;
   initialized_ = true;  // no retry
   path opencc_config_path = path(opencc_config_);
   if (opencc_config_path.extension().string() == ".ini") {
