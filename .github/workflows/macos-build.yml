@@ -26,7 +26,6 @@ jobs:
       boost_version: 1.84.0
       BOOST_ROOT: ${{ github.workspace }}/deps/boost-1.84.0
       RIME_PLUGINS: ${{ inputs.rime_plugins }}
-      boost_libs: locale
     steps:
       - name: Checkout last commit
         uses: actions/checkout@v4

@@ -13,7 +13,8 @@
 #include <rime/engine.h>
 #include <rime/schema.h>
 #include <rime/dict/vocabulary.h>
-#include <boost/locale/encoding.hpp>
+//#include <boost/locale/encoding.hpp>
+#include "encoding_check.h"
 #include <boost/algorithm/string.hpp>
 
 #include "often_charset_filter.h"
@@ -966,19 +967,7 @@ bool OftenCharsetFilter::FilterText(const string& text,
   if (charset == "emoji") {
     return is_all_emoji(text);
   }
-  try {
-    boost::locale::conv::from_utf(
-        text, charset, boost::locale::conv::method_type::stop);
-  }
-  catch(boost::locale::conv::conversion_error const& ex) {
-    DLOG(INFO) << ex.what();
-    return false;
-  }
-  catch(boost::locale::conv::invalid_charset_error const& ex) {
-    DLOG(ERROR) << ex.what();
-    return true;
-  }
-  return true;
+  return is_valid_encoding(text, charset);
 }
 
 

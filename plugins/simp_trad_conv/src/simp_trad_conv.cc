@@ -23,7 +23,7 @@
 #include <opencc/ConversionChain.hpp>
 #include <opencc/Dict.hpp>
 #include <opencc/DictEntry.hpp>
-#include <boost/locale/encoding.hpp>
+#include "encoding_check.h"
 #include <boost/algorithm/string.hpp>
 
 #include "simp_trad_conv.h"
@@ -804,6 +804,7 @@ class Opencc2 {
         // 修改点，只取一个
         // return forms->size() > 0;
     }
+    return false;
   }
 
   bool FirstTradConvertWord(const string& text, vector<string>* forms) {
@@ -1070,19 +1071,7 @@ bool SimpTradConv::FilterText(const string& text,
   if (charset.empty()) {
     return true;
   }
-  try {
-    boost::locale::conv::from_utf(
-        text, charset, boost::locale::conv::method_type::stop);
-  }
-  catch(boost::locale::conv::conversion_error const& ex) {
-    DLOG(INFO) << ex.what();
-    return false;
-  }
-  catch(boost::locale::conv::invalid_charset_error const& ex) {
-    DLOG(ERROR) << ex.what();
-    return true;
-  }
-  return true;
+  return is_valid_encoding(text, charset);
 }
 
 }  // namespace rime
