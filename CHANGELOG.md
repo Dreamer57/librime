@@ -1,3 +1,92 @@
+<a name="1.16.1"></a>
+## 1.16.1 (2026-01-20)
+
+### Bug 修復 | Bug Fixes
+- 插入輸入碼再向右移動 (d65c46a)
+- load schema list when default.custom.yaml is absent (#1126) (58e51c5)
+
+### 構建 | Build
+- use git-cliff (c7c3306)
+
+### 雜項 | Miscellaneous
+- include <algorithm> for std::{max,min} (793b6a0)
+- clangd lsp integration (#1125) (caa2233)
+
+**Full Changelog**: https://github.com/rime/squirrel/compare/1.16.0...1.16.1
+
+<a name="1.16.0"></a>
+# [1.16.0](https://github.com/rime/librime/compare/1.15.0...1.16.0) (2026-01-06)
+
+
+### Bug Fixes
+
+* **chord_composer:** do not consume orphan key release events ([65dad2c](https://github.com/rime/librime/commit/65dad2c))
+* **dict:** 禁用歧義切分路徑懲罰 ([aa0d71e](https://github.com/rime/librime/commit/aa0d71e))
+* **script_translator:** 用戶詞糾錯則取消優先權 ([21d0c69](https://github.com/rime/librime/commit/21d0c69)), closes [#1120](https://github.com/rime/librime/issues/1120)
+* **syllabifier:** 歧義切分路徑懲罰誤傷其他切分路徑 ([a97ec04](https://github.com/rime/librime/commit/a97ec04))
+
+
+### Features
+
+* **calculus:** 拼寫運算增設容錯規則 ([0bf8131](https://github.com/rime/librime/commit/0bf8131))
+* **config:** 自動引用 default:/{navigator,selector} ([82ba0b1](https://github.com/rime/librime/commit/82ba0b1))
+* **dictionary:** 全碼長度積分 ([f6756b3](https://github.com/rime/librime/commit/f6756b3))
+* **navigator:** 右方向鍵默認爲 forward 動作 ([fd4fa7e](https://github.com/rime/librime/commit/fd4fa7e))
+* **navigator:** add no looping navigation actions ([4703320](https://github.com/rime/librime/commit/4703320)), closes [#1106](https://github.com/rime/librime/issues/1106)
+* **script_translator:** 首選爲糾錯則啓動造句 ([fce47ee](https://github.com/rime/librime/commit/fce47ee)), closes [#1120](https://github.com/rime/librime/issues/1120)
+* **tool:** deduplicate input history and limit its total length ([da3321f](https://github.com/rime/librime/commit/da3321f))
+* **tool:** rime_api_console with autosuggestions feature like zsh-autosuggestions ([80cefba](https://github.com/rime/librime/commit/80cefba))
+* **tool:** rime_api_console with input feature histories switched by Up/Down ([34bfaf6](https://github.com/rime/librime/commit/34bfaf6))
+
+
+
+<a name="1.15.0"></a>
+# [1.15.0](https://github.com/rime/librime/compare/1.14.0...1.15.0) (2025-11-23)
+
+
+### Bug Fixes
+
+* **charset_filter:** Support Ext J ([#1098](https://github.com/rime/librime/issues/1098)) ([5a54a14](https://github.com/rime/librime/commit/5a54a14))
+* **simplifier:** Lazily initialize Opencc ([#1101](https://github.com/rime/librime/issues/1101)) ([6bd73d0](https://github.com/rime/librime/commit/6bd73d0))
+* navigation actions should trigger `update_notifier` ([eaa23f5](https://github.com/rime/librime/commit/eaa23f5))
+* **composition:** skip phony segments in GetScriptText ([#1051](https://github.com/rime/librime/issues/1051)) ([0a8a58f](https://github.com/rime/librime/commit/0a8a58f))
+* **engine:** clear formatters and post processors ([29dc787](https://github.com/rime/librime/commit/29dc787))
+* **vocabulary:** Homophones sorting should be stable ([#1079](https://github.com/rime/librime/issues/1079)) ([d6a9280](https://github.com/rime/librime/commit/d6a9280))
+
+
+### Features
+
+* clear composition with a abortcomposition notification ([#1054](https://github.com/rime/librime/issues/1054)) ([0ecfc9c](https://github.com/rime/librime/commit/0ecfc9c))
+
+
+
+<a name="1.14.0"></a>
+# [1.14.0](https://github.com/rime/librime/compare/1.13.1...1.14.0) (2025-07-20)
+
+
+### Bug Fixes
+
+* fix non-void function does not return a value ([#1039](https://github.com/rime/librime/issues/1039)) ([3c1d6e7](https://github.com/rime/librime/commit/3c1d6e7))
+* **ascii_composer:** Fix good old caps lock behavior ([2c24811](https://github.com/rime/librime/commit/2c24811)), closes [rime/ibus-rime#171](https://github.com/rime/ibus-rime/issues/171)
+* **cmake:** replace include() with find_package() to avoid calling find_package_handle_standard_args() twice with different arguments ([#998](https://github.com/rime/librime/issues/998)) ([ceb3081](https://github.com/rime/librime/commit/ceb3081)), closes [rime/ibus-rime#199](https://github.com/rime/ibus-rime/issues/199)
+* **script_translator:** config max_word_length and core_word_length ([ac1b3fb](https://github.com/rime/librime/commit/ac1b3fb))
+* **simplifier:** return nullptr on error [#1002](https://github.com/rime/librime/issues/1002) ([6e46361](https://github.com/rime/librime/commit/6e46361))
+* crashes caused by creating empty components ([#1003](https://github.com/rime/librime/issues/1003)) ([fa43f3d](https://github.com/rime/librime/commit/fa43f3d))
+* **test:** memory leaks in unit tests ([#997](https://github.com/rime/librime/issues/997)) ([6bbb633](https://github.com/rime/librime/commit/6bbb633)), closes [#989](https://github.com/rime/librime/issues/989)
+
+
+### Features
+
+* **ascii_composer:** set/unset_ascii_mode ([37b3246](https://github.com/rime/librime/commit/37b3246))
+* **ascii_composer:** support alt, super key press ([2f24489](https://github.com/rime/librime/commit/2f24489))
+* **deployer:** allow disabling backup_config_files ([#991](https://github.com/rime/librime/issues/991)) ([8f5d5f9](https://github.com/rime/librime/commit/8f5d5f9))
+* **script_translator:** concatenate segments with a sliding window ([fee05a5](https://github.com/rime/librime/commit/fee05a5))
+* **script_translator:** learn new phrases automatically from segmentations ([1192d8f](https://github.com/rime/librime/commit/1192d8f))
+* **script_translator:** update elements of phrases which are longer than max_word_length ([b033bad](https://github.com/rime/librime/commit/b033bad))
+* **translator_commons:** add `dictionary_exclude` to exclude words ([#1008](https://github.com/rime/librime/issues/1008)) ([959937e](https://github.com/rime/librime/commit/959937e))
+
+
+
 <a name="1.13.1"></a>
 ## [1.13.1](https://github.com/rime/librime/compare/1.13.0...1.13.1) (2025-02-16)
 

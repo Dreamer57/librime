@@ -11,11 +11,13 @@
 #include <cmath>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/range/adaptor/reversed.hpp>
+#include <rime/common.h>
 #include <rime/composition.h>
 #include <rime/candidate.h>
 #include <rime/config.h>
 #include <rime/context.h>
 #include <rime/engine.h>
+#include <rime/language.h>
 #include <rime/schema.h>
 #include <rime/translation.h>
 #include <rime/algo/syllabifier.h>
@@ -94,7 +96,7 @@ class ScriptSyllabifier : public PhraseSyllabifier {
   size_t BuildSyllableGraph(Prism& prism);
   string GetPreeditString(const Phrase& cand) const;
   string GetOriginalSpelling(const Phrase& cand) const;
-  bool IsCandidateCorrection(const Phrase& cand) const;
+  bool IsCorrection(const Code& code, size_t code_length) const;
 
   const SyllableGraph& syllable_graph() const { return syllable_graph_; }
 
@@ -173,6 +175,8 @@ ScriptTranslator::ScriptTranslator(const Ticket& ticket)
     return;
   if (Config* config = engine_->schema()->config()) {
     config->GetInt(name_space_ + "/spelling_hints", &spelling_hints_);
+    config->GetInt(name_space_ + "/max_word_length", &max_word_length_);
+    config->GetInt(name_space_ + "/core_word_length", &core_word_length_);
     config->GetBool(name_space_ + "/always_show_comments",
                     &always_show_comments_);
     config->GetBool(name_space_ + "/enable_correction", &enable_correction_);
@@ -219,6 +223,71 @@ an<Translation> ScriptTranslator::Query(const string& input,
   return deduped;
 }
 
+int ScriptTranslator::core_word_length() const {
+  if (max_word_length_ <= 0) {
+    return core_word_length_;
+  }
+  return (std::min)(core_word_length_, max_word_length_);
+}
+
+static bool exceed_upperlimit(int length, int upper_limit) {
+  return upper_limit > 0 && length > upper_limit;
+}
+
+bool ScriptTranslator::SaveCommitEntry(CommitEntry& commit_entry) {
+  if (exceed_upperlimit(commit_entry.Length(), max_word_length())) {
+    UpdateElements(commit_entry);
+  } else {
+    commit_entry.Save();
+  }
+  return true;
+}
+
+bool ScriptTranslator::ConcatenatePhrases(CommitEntry& commit_entry,
+                                          const vector<an<Phrase>>& phrases) {
+  const int kCoreWordLength = core_word_length();
+  const int n = phrases.size();
+  for (int i = 0; i < n; ++i) {
+    int cur_len = 0;
+    int j = i;
+    for (; j < n; ++j) {
+      commit_entry.AppendPhrase(phrases.at(j));
+      cur_len += phrases.at(j)->code().size();
+      if (kCoreWordLength <= 0 || cur_len > kCoreWordLength) {
+        break;
+      }
+      SaveCommitEntry(commit_entry);
+    }
+    if (kCoreWordLength > 0) {
+      if (j == i) {
+        SaveCommitEntry(commit_entry);
+      }
+      commit_entry.Clear();
+    }
+  }
+  SaveCommitEntry(commit_entry);
+  commit_entry.Clear();
+
+  return true;
+}
+
+bool ScriptTranslator::ProcessSegmentOnCommit(CommitEntry& commit_entry,
+                                              const Segment& seg) {
+  auto phrase =
+      As<Phrase>(Candidate::GetGenuineCandidate(seg.GetSelectedCandidate()));
+  bool recognized = Language::intelligible(phrase, this);
+  if (recognized) {
+    queue_.push_back(phrase);
+  }
+
+  if (!recognized || seg.status >= Segment::kConfirmed) {
+    ConcatenatePhrases(commit_entry, queue_);
+    queue_.clear();
+  }
+
+  return true;
+}
+
 string ScriptTranslator::FormatPreedit(const string& preedit) {
   string result = preedit;
   preedit_formatter_.Apply(&result);
@@ -241,7 +310,7 @@ string ScriptTranslator::GetPrecedingText(size_t start) const {
                      : engine_->context()->commit_history().latest_text();
 }
 
-bool ScriptTranslator::Memorize(const CommitEntry& commit_entry) {
+bool ScriptTranslator::UpdateElements(const CommitEntry& commit_entry) {
   bool update_elements = false;
   // avoid updating single character entries within a phrase which is
   // composed with single characters only
@@ -258,6 +327,11 @@ bool ScriptTranslator::Memorize(const CommitEntry& commit_entry) {
       user_dict_->UpdateEntry(*e, 0);
     }
   }
+  return true;
+}
+
+bool ScriptTranslator::Memorize(const CommitEntry& commit_entry) {
+  UpdateElements(commit_entry);
   user_dict_->UpdateEntry(commit_entry, 1);
   return true;
 }
@@ -284,36 +358,39 @@ size_t ScriptSyllabifier::BuildSyllableGraph(Prism& prism) {
                                                  &syllable_graph_);
 }
 
-bool ScriptSyllabifier::IsCandidateCorrection(const rime::Phrase& cand) const {
-  std::stack<bool> results;
-  // Perform DFS on syllable graph to find whether this candidate is a
-  // correction
-  SyllabifyTask task{cand.code(), syllable_graph_, cand.end() - start_,
-                     [&](SyllabifyTask* task, size_t depth, size_t current_pos,
-                         size_t next_pos) {
-                       auto id = cand.code()[depth];
-                       auto it_s = syllable_graph_.edges.find(current_pos);
-                       // C++ prohibit operator [] of const map
-                       // if
-                       // (syllable_graph_.edges[current_pos][next_pos][id].type
-                       // == kCorrection)
-                       if (it_s != syllable_graph_.edges.end()) {
-                         auto it_e = it_s->second.find(next_pos);
-                         if (it_e != it_s->second.end()) {
-                           auto it_type = it_e->second.find(id);
-                           if (it_type != it_e->second.end()) {
-                             results.push(it_type->second.is_correction);
-                             return;
-                           }
-                         }
-                       }
-                       results.push(false);
-                     },
-                     [&](SyllabifyTask* task, size_t depth) { results.pop(); }};
-  if (syllabify_dfs(&task, 0, cand.start() - start_)) {
-    for (; !results.empty(); results.pop()) {
-      if (results.top())
-        return results.top();
+bool ScriptSyllabifier::IsCorrection(const Code& code,
+                                     size_t code_length) const {
+  vector<bool> path_attributes;
+  path_attributes.reserve(8);
+
+  SyllabifyTask task{
+      code, syllable_graph_, code_length,
+      // push
+      [&](SyllabifyTask* task, size_t depth, size_t current_pos,
+          size_t next_pos) {
+        auto id = task->code[depth];
+
+        auto start_iter = syllable_graph_.edges.find(current_pos);
+        if (start_iter != syllable_graph_.edges.end()) {
+          auto end_iter = start_iter->second.find(next_pos);
+          if (end_iter != start_iter->second.end()) {
+            auto prop_iter = end_iter->second.find(id);
+            if (prop_iter != end_iter->second.end()) {
+              path_attributes.push_back(prop_iter->second.is_correction);
+              return;
+            }
+          }
+        }
+        // edge not found
+        path_attributes.push_back(false);
+      },
+      // pop
+      [&](SyllabifyTask* task, size_t depth) { path_attributes.pop_back(); }};
+
+  if (syllabify_dfs(&task, 0, 0)) {
+    for (bool is_correction : path_attributes) {
+      if (is_correction)
+        return true;
     }
   }
   return false;
@@ -368,7 +445,8 @@ bool ScriptTranslation::Evaluate(Dictionary* dict, UserDictionary* user_dict) {
   bool predict_word = translator_->enable_word_completion() &&
                       start_ + consumed == end_of_input_;
 
-  phrase_ = dict->Lookup(syllable_graph, 0, predict_word);
+  phrase_ =
+      dict->Lookup(syllable_graph, 0, &translator_->blacklist(), predict_word);
   if (user_dict) {
     const size_t kUnlimitedDepth = 0;
     const size_t kNumSyllablesToPredictWord = 4;
@@ -384,11 +462,28 @@ bool ScriptTranslation::Evaluate(Dictionary* dict, UserDictionary* user_dict) {
   if (user_phrase_)
     user_phrase_iter_ = user_phrase_->rbegin();
 
-  // make sentences when there is no exact-matching phrase candidate
+  auto is_correction_match = [&](auto& iter_pair, size_t len) {
+    if (iter_pair.first != len || iter_pair.second.exhausted())
+      return false;
+    return syllabifier_->IsCorrection(iter_pair.second.Peek()->code, len);
+  };
+
+  bool has_reliable_phrase =
+      has_exact_match_phrase(phrase_, phrase_iter_, consumed) &&
+      !is_correction_match(*phrase_iter_, consumed);
+
+  bool has_reliable_user_phrase =
+      has_exact_match_phrase(user_phrase_, user_phrase_iter_, consumed) &&
+      !is_correction_match(*user_phrase_iter_, consumed);
+
   bool has_at_least_two_syllables = syllable_graph.edges.size() >= 2;
-  if (has_at_least_two_syllables &&
-      !has_exact_match_phrase(phrase_, phrase_iter_, consumed) &&
-      !has_exact_match_phrase(user_phrase_, user_phrase_iter_, consumed)) {
+  DLOG(INFO) << "consumed: " << consumed
+             << ", has_reliable_phrase: " << has_reliable_phrase
+             << ", has_reliable_user_phrase: " << has_reliable_user_phrase
+             << ", has_at_least_two_syllables: " << has_at_least_two_syllables;
+  // make sentences when there is no exact-matching phrase candidate
+  if (has_at_least_two_syllables && !has_reliable_phrase &&
+      !has_reliable_user_phrase) {
     sentence_ = MakeSentence(dict, user_dict);
   }
 
@@ -431,7 +526,8 @@ bool ScriptTranslation::Next() {
       }
     }
   } while (enable_correction_ &&
-           syllabifier_->IsCandidateCorrection(*candidate_) &&
+           syllabifier_->IsCorrection(candidate_->code(),
+                                      candidate_->end() - start_) &&
            // limit the number of correction candidates
            ++correction_count_ > max_corrections_);
   if (!CheckEmpty()) {
@@ -439,12 +535,6 @@ bool ScriptTranslation::Next() {
     return true;
   }
   return false;
-}
-
-bool ScriptTranslation::IsNormalSpelling() const {
-  const auto& syllable_graph = syllabifier_->syllable_graph();
-  return !syllable_graph.vertices.empty() &&
-         (syllable_graph.vertices.rbegin()->second == kNormalSpelling);
 }
 
 an<Candidate> ScriptTranslation::Peek() {
@@ -479,6 +569,7 @@ inline static bool prefer_user_phrase(
 }
 
 bool ScriptTranslation::PrepareCandidate() {
+iter_incremented:
   if (exhausted()) {
     candidate_source_ = kUninitialized;
     candidate_ = nullptr;
@@ -489,6 +580,7 @@ bool ScriptTranslation::PrepareCandidate() {
     candidate_ = sentence_;
     return true;
   }
+  const size_t full_code_length = end_of_input_ - start_;
   size_t user_phrase_code_length = 0;
   if (user_phrase_ && user_phrase_iter_ != user_phrase_->rend()) {
     user_phrase_code_length = user_phrase_iter_->first;
@@ -498,16 +590,30 @@ bool ScriptTranslation::PrepareCandidate() {
     phrase_code_length = phrase_iter_->first;
   }
   if (user_phrase_code_length > 0 &&
-      prefer_user_phrase(user_phrase_code_length, phrase_code_length, [this]() {
-        const int kNumExactMatchOnTop = 1;
-        size_t full_code_length = end_of_input_ - start_;
-        return candidate_index_ >= kNumExactMatchOnTop ||
-               prefer_user_phrase(
-                   has_exact_match_phrase(user_phrase_, user_phrase_iter_,
-                                          full_code_length),
-                   has_exact_match_phrase(phrase_, phrase_iter_,
-                                          full_code_length));
-      })) {
+      prefer_user_phrase(
+          user_phrase_code_length, phrase_code_length,
+          // 編碼長度相同時, 用戶詞優先
+          [this, full_code_length, phrase_code_length]() {
+            UserDictEntryIterator& uter = user_phrase_iter_->second;
+            DictEntryIterator& iter = phrase_iter_->second;
+            // 但若用戶詞爲糾錯結果, 則免去優先權, 回歸權重比較
+            bool user_is_correction = syllabifier_->IsCorrection(
+                uter.Peek()->code, phrase_code_length);
+            if (user_is_correction) {
+              // 因對糾錯候選施加了較大懲罰, 通常結果爲 系統原文 > 用戶糾錯
+              // 兩者皆糾錯時, 用戶詞的動態權重有助達成 用戶糾錯 > 系統糾錯
+              return uter.Peek()->weight >= iter.Peek()->weight;
+            }
+            // 長詞聯想之前須至少出一個嚴格匹配的候選
+            // 故確定首選之際, 系統嚴格匹配 > 用戶長詞聯想
+            const int kNumExactMatchOnTop = 1;
+            return candidate_index_ >= kNumExactMatchOnTop ||
+                   prefer_user_phrase(
+                       has_exact_match_phrase(user_phrase_, user_phrase_iter_,
+                                              full_code_length),
+                       has_exact_match_phrase(phrase_, phrase_iter_,
+                                              full_code_length));
+          })) {
     UserDictEntryIterator& uter = user_phrase_iter_->second;
     const auto& entry = uter.Peek();
     DLOG(INFO) << "user phrase '" << entry->text
@@ -519,10 +625,14 @@ bool ScriptTranslation::PrepareCandidate() {
                     start_, start_ + user_phrase_code_length, entry);
     candidate_->set_quality(std::exp(entry->weight) +
                             translator_->initial_quality() +
-                            (IsNormalSpelling() ? 0.5 : -0.5));
+                            (entry->quality_len / full_code_length));
     return true;
   } else if (phrase_code_length > 0) {
     DictEntryIterator& iter = phrase_iter_->second;
+    if (iter.exhausted()) {
+      ++phrase_iter_;
+      goto iter_incremented;
+    }
     const auto& entry = iter.Peek();
     DLOG(INFO) << "phrase '" << entry->text
                << "', code length: " << phrase_code_length;
@@ -533,7 +643,7 @@ bool ScriptTranslation::PrepareCandidate() {
                     start_, start_ + phrase_code_length, entry);
     candidate_->set_quality(std::exp(entry->weight) +
                             translator_->initial_quality() +
-                            (IsNormalSpelling() ? 0 : -1));
+                            (entry->quality_len / full_code_length));
     return true;
   } else {
     candidate_source_ = kUninitialized;
@@ -578,7 +688,8 @@ an<Sentence> ScriptTranslation::MakeSentence(Dictionary* dict,
                                       kMaxSyllablesForUserPhraseQuery));
     }
     // merge lookup results
-    EnrollEntries(same_start_pos, dict->Lookup(syllable_graph, x.first));
+    EnrollEntries(same_start_pos, dict->Lookup(syllable_graph, x.first,
+                                               &translator_->blacklist()));
   }
   if (auto sentence =
           poet_->MakeSentence(graph, syllable_graph.interpreted_length,
